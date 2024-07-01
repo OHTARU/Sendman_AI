@@ -16,5 +16,5 @@ def check_preprocessed_data(output_folder):
     print(f"\nTotal Files: {total_files}")
     print(f"Total Size: {total_size / (1024 * 1024):.2f} MB")
 
-output_directory = r'D:\138.뉴스 대본 및 앵커 음성 데이터\새 폴더'
+output_directory = r'D:\138.뉴스 대본 및 앵커 음성 데이터\MFCC'
 check_preprocessed_data(output_directory)
