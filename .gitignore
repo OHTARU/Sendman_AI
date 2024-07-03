@@ -175,7 +175,8 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-
+processd_data.pkl/
+/processed_data.pkl
 
 /stt_model.keras
 stt_model.keras/
