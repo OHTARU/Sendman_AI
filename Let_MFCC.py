@@ -2,17 +2,15 @@ import os
 import torch
 import torchaudio
 import numpy as np
-import pandas as pd
+import h5py
 from tqdm import tqdm  # tqdm 라이브러리 추가
-import pickle
 
 # GPU 사용 설정
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 # 데이터 경로 설정
-audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_05\KsponSpeech_05\KsponSpeech_0497'
-transcript_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_05\KsponSpeech_05\KsponSpeech_0497'
+audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03\KsponSpeech_0249'
 
 # 모든 .pcm 파일 경로를 재귀적으로 찾기
 audio_paths = []
@@ -52,8 +50,21 @@ def load_transcript(file_path):
             continue
     raise ValueError(f"Failed to decode file {file_path} with available encodings")
 
+# 전처리된 데이터를 HDF5 파일로 저장
+def save_to_h5(data, h5_file, max_len):
+    with h5py.File(h5_file, 'w') as f:
+        mel_spectrograms = f.create_dataset('mel_spectrograms', (len(data), 80, max_len), dtype='float32', chunks=True)
+        transcripts = f.create_dataset('transcripts', (len(data),), dtype=h5py.special_dtype(vlen=str))
+
+        for idx, item in enumerate(tqdm(data, desc="Saving to HDF5")):
+            mel = item['mel_spectrogram'].cpu().numpy()
+            mel_spectrograms[idx, :, :mel.shape[1]] = mel  # 고정된 최대 길이로 패딩
+            transcripts[idx] = item['transcript']
+
 # 모든 데이터를 전처리하여 저장
 processed_data = []
+max_len = 0  # 최대 길이 초기화
+
 for audio_path in tqdm(audio_paths, desc="Processing audio files"):
     base_name = os.path.splitext(os.path.basename(audio_path))[0]
     transcript_path = next((path for path in transcript_paths if base_name in path), None)
@@ -65,24 +76,26 @@ for audio_path in tqdm(audio_paths, desc="Processing audio files"):
     waveform, sr = load_pcm(audio_path)
     mel_spectrogram = extract_features(waveform, sr)
     
+    # 최대 길이 업데이트
+    if mel_spectrogram.shape[1] > max_len:
+        max_len = mel_spectrogram.shape[1]
+    
     # 텍스트 파일 전처리
     transcript = load_transcript(transcript_path)
     
     # 전처리된 데이터 저장
     processed_data.append({
-        'mel_spectrogram': mel_spectrogram.cpu(),  # GPU에서 CPU로 이동
+        'mel_spectrogram': mel_spectrogram,
         'transcript': transcript
     })
 
-# 전처리된 데이터 확인
-print(processed_data[0]['mel_spectrogram'].shape)
-print(processed_data[0]['transcript'])
+# HDF5 파일로 저장
+h5_file = 'processed_data.h5'
+save_to_h5(processed_data, h5_file, max_len)
 
-# 처리된 데이터를 파일로 저장
-with open('processed_data.pkl', 'wb') as f:
-    pickle.dump(processed_data, f)
+print("Processed data has been saved to HDF5.")
 
-print("Processed data has been saved.")
+
 
 
 # import os

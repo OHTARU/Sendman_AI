@@ -10,6 +10,9 @@ __pycache__/
 # C extensions
 *.so
 
+processed_data.h5/
+/processed_data.h5
+
 # Distribution / packaging
 .Python
 build/
