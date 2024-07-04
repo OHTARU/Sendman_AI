@@ -3,14 +3,14 @@ import torch
 import torchaudio
 import numpy as np
 import h5py
-from tqdm import tqdm  # tqdm 라이브러리 추가
+from tqdm import tqdm
 
 # GPU 사용 설정
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 # 데이터 경로 설정
-audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03\KsponSpeech_0249'
+audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03'
 
 # 모든 .pcm 파일 경로를 재귀적으로 찾기
 audio_paths = []
@@ -50,6 +50,26 @@ def load_transcript(file_path):
             continue
     raise ValueError(f"Failed to decode file {file_path} with available encodings")
 
+# 파일을 처리하는 함수
+def process_file(audio_path):
+    base_name = os.path.splitext(os.path.basename(audio_path))[0]
+    transcript_path = next((path for path in transcript_paths if base_name in path), None)
+    
+    if transcript_path is None:
+        return None
+    
+    # .pcm 파일 전처리
+    waveform, sr = load_pcm(audio_path)
+    mel_spectrogram = extract_features(waveform, sr)
+    
+    # 텍스트 파일 전처리
+    transcript = load_transcript(transcript_path)
+    
+    return {
+        'mel_spectrogram': mel_spectrogram,  # 이미 CPU로 이동
+        'transcript': transcript
+    }
+
 # 전처리된 데이터를 HDF5 파일로 저장
 def save_to_h5(data, h5_file, max_len):
     with h5py.File(h5_file, 'w') as f:
@@ -61,40 +81,22 @@ def save_to_h5(data, h5_file, max_len):
             mel_spectrograms[idx, :, :mel.shape[1]] = mel  # 고정된 최대 길이로 패딩
             transcripts[idx] = item['transcript']
 
-# 모든 데이터를 전처리하여 저장
+# 데이터 처리 및 저장
 processed_data = []
 max_len = 0  # 최대 길이 초기화
 
 for audio_path in tqdm(audio_paths, desc="Processing audio files"):
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]
-    transcript_path = next((path for path in transcript_paths if base_name in path), None)
-    
-    if transcript_path is None:
-        continue
-    
-    # .pcm 파일 전처리
-    waveform, sr = load_pcm(audio_path)
-    mel_spectrogram = extract_features(waveform, sr)
-    
-    # 최대 길이 업데이트
-    if mel_spectrogram.shape[1] > max_len:
-        max_len = mel_spectrogram.shape[1]
-    
-    # 텍스트 파일 전처리
-    transcript = load_transcript(transcript_path)
-    
-    # 전처리된 데이터 저장
-    processed_data.append({
-        'mel_spectrogram': mel_spectrogram,
-        'transcript': transcript
-    })
+    result = process_file(audio_path)
+    if result is not None:
+        processed_data.append(result)
+        if result['mel_spectrogram'].shape[1] > max_len:
+            max_len = result['mel_spectrogram'].shape[1]
 
 # HDF5 파일로 저장
 h5_file = 'processed_data.h5'
 save_to_h5(processed_data, h5_file, max_len)
 
 print("Processed data has been saved to HDF5.")
-
 
 
 

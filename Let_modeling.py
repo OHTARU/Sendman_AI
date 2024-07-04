@@ -5,7 +5,7 @@ import torchaudio
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import h5py
-from tqdm import tqdm  # tqdm 라이브러리 추가
+from tqdm import tqdm
 
 # 모든 한글 문자 포함
 hangul_chars = [chr(i) for i in range(ord('가'), ord('힣') + 1)]
@@ -76,20 +76,21 @@ def pad_collate_fn(batch):
 
 def create_data_loader(h5_file, batch_size, num_workers=0):
     dataset = SpeechDataset(h5_file)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=pad_collate_fn, num_workers=num_workers)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=pad_collate_fn, num_workers=num_workers, pin_memory=True)
 
 # 모델 학습 함수
-def train_model(model, dataloader, num_epochs, lr=0.001):
-    criterion = nn.CTCLoss()
+def train_model(model, dataloader, num_epochs, lr=0.001, device='cpu'):
+    criterion = nn.CTCLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     for epoch in range(num_epochs):
         model.train()
         epoch_loss = 0  # 에포크별 손실 초기화
         progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
         for mel_spectrograms, transcripts in progress_bar:
+            mel_spectrograms, transcripts = mel_spectrograms.to(device), transcripts.to(device)
             mel_spectrograms = mel_spectrograms.permute(2, 0, 1)  # (N, C, L) -> (L, N, C)
-            target_lengths = torch.tensor([len(t) for t in transcripts])
-            input_lengths = torch.full(size=(mel_spectrograms.size(1),), fill_value=mel_spectrograms.size(0), dtype=torch.long)
+            target_lengths = torch.tensor([len(t) for t in transcripts], dtype=torch.long).to(device)
+            input_lengths = torch.full(size=(mel_spectrograms.size(1),), fill_value=mel_spectrograms.size(0), dtype=torch.long).to(device)
 
             optimizer.zero_grad()
             outputs = model(mel_spectrograms)
@@ -100,34 +101,42 @@ def train_model(model, dataloader, num_epochs, lr=0.001):
             progress_bar.set_postfix(loss=loss.item())
         avg_epoch_loss = epoch_loss / len(dataloader)  # 에포크 손실의 평균 계산
         print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_epoch_loss}")
+        
+        # 모델 저장
+        torch.save(model.state_dict(), f'model_epoch_{epoch+1}.pth')
 
 # 추론 함수
-def predict(model, audio_path):
+def predict(model, audio_path, device='cpu'):
     waveform, sr = load_pcm(audio_path)
     mel_spectrogram = extract_features(waveform, sr)
-    mel_spectrogram = mel_spectrogram.unsqueeze(0).permute(2, 0, 1)  # (C, L) -> (1, C, L) -> (L, 1, C)
+    mel_spectrogram = mel_spectrogram.unsqueeze(0).permute(2, 0, 1).to(device)  # (C, L) -> (1, C, L) -> (L, 1, C)
     with torch.no_grad():
         outputs = model(mel_spectrogram)
     outputs = outputs.argmax(dim=2).squeeze(1)
     decoded_transcript = ''.join([index_to_char.get(idx, '') for idx in outputs])
     return decoded_transcript
 
-# 모델 초기화
-input_dim = 80  # Mel-spectrogram feature size
-hidden_dim = 256
-output_dim = len(characters)  # 문자 집합의 크기
+if __name__ == "__main__":
+    # GPU 사용 설정
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
 
-model = SpeechToTextModel(input_dim, hidden_dim, output_dim)
+    # 모델 초기화
+    input_dim = 80  # Mel-spectrogram feature size
+    hidden_dim = 256
+    output_dim = len(characters)  # 문자 집합의 크기
 
-# 전처리된 데이터를 로드합니다.
-h5_file = 'processed_data.h5'
+    model = SpeechToTextModel(input_dim, hidden_dim, output_dim).to(device)
 
-dataloader = create_data_loader(h5_file, batch_size=4, num_workers=2)  # 배치 크기를 4로 줄이고 num_workers 설정
+    # 전처리된 데이터를 로드합니다.
+    h5_file = 'processed_data.h5'
 
-# 모델 학습
-train_model(model, dataloader, num_epochs=10)
+    dataloader = create_data_loader(h5_file, batch_size=4, num_workers=2)  # 배치 크기를 4로 줄이고 num_workers 설정
 
-# 예제 사용
-audio_path = r"D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03\KsponSpeech_0249\KsponSpeech_248029.pcm"
-transcript = predict(model, audio_path)
-print(f"Predicted transcript: {transcript}")
+    # 모델 학습
+    train_model(model, dataloader, num_epochs=10, device=device)
+
+    # 예제 사용
+    audio_path = r"D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03\KsponSpeech_0249\KsponSpeech_248029.pcm"
+    transcript = predict(model, audio_path, device=device)
+    print(f"Predicted transcript: {transcript}")

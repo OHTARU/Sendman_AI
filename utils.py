@@ -2,8 +2,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import random
-import torch
 import torch.nn as nn
+import torchaudio
+import numpy as np
 
 # 문자 집합 정의
 hangul_chars = [chr(i) for i in range(ord('가'), ord('힣') + 1)]
@@ -50,14 +51,6 @@ def split_data(data, train_ratio=0.7, val_ratio=0.2, test_ratio=0.1):
 
     return train_data, val_data, test_data
 
-def predict(model, mel_spectrogram):
-    model.eval()
-    with torch.no_grad():
-        outputs = model(mel_spectrogram.permute(2, 0, 1))
-    outputs = outputs.argmax(dim=2).squeeze(1)
-    decoded_transcript = ''.join([index_to_char[idx.item()] for idx in outputs if idx.item() in index_to_char])
-    return decoded_transcript
-
 class SpeechToTextModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(SpeechToTextModel, self).__init__()
@@ -69,9 +62,23 @@ class SpeechToTextModel(nn.Module):
         x = self.fc(x)
         return x
 
-def predict(model, mel_spectrogram):
+def load_pcm(file_path, channels=1, sample_rate=16000, dtype=np.int16):
+    with open(file_path, 'rb') as f:
+        pcm_data = np.frombuffer(f.read(), dtype=dtype)
+        pcm_data = pcm_data.astype(np.float32) / np.iinfo(dtype).max
+        if channels > 1:
+            pcm_data = pcm_data.reshape(-1, channels)
+    return pcm_data, sample_rate
+
+def predict(model, audio_path, device='cpu'):
+    waveform, sr = load_pcm(audio_path)
+    mel_spectrogram = torchaudio.transforms.MelSpectrogram(sample_rate=sr, n_mels=80, n_fft=400)(torch.tensor(waveform).unsqueeze(0)).to(device)
+    
+    # mel_spectrogram이 (1, 80, L) 형태가 됨 -> (C, L) -> (1, C, L) -> (L, 1, C)
+    mel_spectrogram = mel_spectrogram.squeeze(0).unsqueeze(0).permute(2, 0, 1)
+    
     with torch.no_grad():
         outputs = model(mel_spectrogram)
     outputs = outputs.argmax(dim=2).squeeze(1)
-    decoded_transcript = ''.join([index_to_char.get(idx, '') for idx in outputs])
+    decoded_transcript = ''.join([index_to_char.get(idx.item(), '') for idx in outputs])
     return decoded_transcript
