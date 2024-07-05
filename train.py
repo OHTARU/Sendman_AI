@@ -1,4 +1,3 @@
-import os
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -86,9 +85,11 @@ def train_model(model, train_loader, val_loader, num_epochs, lr=0.001):
         val_losses.append(avg_val_loss)
 
         print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
-        torch.save(model.state_dict(), f"model_epoch_{epoch+1}.pth")
 
-    # 학습 손실 및 검증 손실 시각화
+        # 모델 저장
+        torch.save(model.state_dict(), f'model_epoch_{epoch+1}.pth')
+
+    # 학습 및 검증 손실 시각화
     plt.plot(range(1, num_epochs + 1), train_losses, label='Training Loss')
     plt.plot(range(1, num_epochs + 1), val_losses, label='Validation Loss')
     plt.xlabel('Epoch')

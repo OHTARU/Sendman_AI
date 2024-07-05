@@ -70,12 +70,18 @@ def load_pcm(file_path, channels=1, sample_rate=16000, dtype=np.int16):
             pcm_data = pcm_data.reshape(-1, channels)
     return pcm_data, sample_rate
 
+def extract_features(waveform, sr, n_mels=80, n_fft=400):
+    waveform = torch.tensor(waveform).unsqueeze(0)  # (1, N) 형태로 변환
+    mel_spectrogram = torchaudio.transforms.MelSpectrogram(
+        sample_rate=sr, n_mels=n_mels, n_fft=n_fft)(waveform)
+    return mel_spectrogram.squeeze(0)
+
 def predict(model, audio_path, device='cpu'):
     waveform, sr = load_pcm(audio_path)
-    mel_spectrogram = torchaudio.transforms.MelSpectrogram(sample_rate=sr, n_mels=80, n_fft=400)(torch.tensor(waveform).unsqueeze(0)).to(device)
+    mel_spectrogram = extract_features(waveform, sr).to(device)
     
     # mel_spectrogram이 (1, 80, L) 형태가 됨 -> (C, L) -> (1, C, L) -> (L, 1, C)
-    mel_spectrogram = mel_spectrogram.squeeze(0).unsqueeze(0).permute(2, 0, 1)
+    mel_spectrogram = mel_spectrogram.unsqueeze(0).permute(2, 0, 1)
     
     with torch.no_grad():
         outputs = model(mel_spectrogram)
