@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 
 # 데이터 경로 설정
-audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03'
+audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_05\KsponSpeech_05'
 
 # 모든 .pcm 파일 경로를 재귀적으로 찾기
 audio_paths = []
