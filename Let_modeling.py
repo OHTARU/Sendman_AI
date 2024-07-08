@@ -19,6 +19,13 @@ if module_path not in sys.path:
 hangul_chars = [chr(i) for i in range(ord('가'), ord('힣') + 1)]
 allowed_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?`~ " + ''.join(hangul_chars)
 
+# Ensure the length of allowed_characters is exactly 11267
+if len(allowed_characters) < 11267:
+    for i in range(11267 - len(allowed_characters)):
+        allowed_characters += chr(1000 + i)
+elif len(allowed_characters) > 11267:
+    allowed_characters = allowed_characters[:11267]
+
 characters = allowed_characters
 char_to_index = {char: idx for idx, char in enumerate(characters)}
 index_to_char = {idx: char for idx, char in enumerate(characters)}
@@ -152,7 +159,11 @@ if __name__ == "__main__":
     input_dim = 80
     hidden_dim = 256
     output_dim = len(characters)
-    h5_file = 'processed_data.h5'
+    h5_file = "D:\\AI\\processed_data.h5"
+
+    # Check if the h5 file exists
+    if not os.path.exists(h5_file):
+        raise FileNotFoundError(f"{h5_file} not found. Please check the file path.")
 
     train_indices, val_indices, test_indices = split_dataset(h5_file)
     param_grid = {
@@ -160,7 +171,7 @@ if __name__ == "__main__":
         'batch_size': [4, 8, 16],
         'lr': [0.001, 0.0001]
     }
-    
+
     best_params = grid_search(h5_file, param_grid, num_epochs=10, train_indices=train_indices, val_indices=val_indices, device=device)
     print(f"Best hyperparameters: {best_params}")
 
@@ -176,6 +187,12 @@ if __name__ == "__main__":
     test_loss = evaluate_model(best_model, test_loader, nn.CTCLoss().to(device), device)
     print(f"Test Loss: {test_loss}")
 
-    audio_path = r"D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03\KsponSpeech_0249\KsponSpeech_248029.pcm"
+    audio_path = r"D:\AI\한국어 음성\한국어_음성_분야\KsponSpeech_02\KsponSpeech_02\KsponSpeech_0125"
+    
+    # Check if the audio file exists
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"{audio_path} not found. Please check the file path.")
+    
     transcript = predict(best_model, audio_path, device=device)
     print(f"Predicted transcript: {transcript}")
+

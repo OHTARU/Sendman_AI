@@ -4,8 +4,25 @@ import torchaudio
 import numpy as np
 from tqdm import tqdm
 
+# 문자 집합 정의
+hangul_chars = [chr(i) for i in range(ord('가'), ord('힣') + 1)]
+allowed_characters = (
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    "!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?~ " + ''.join(hangul_chars)
+)
+allowed_characters += " "
+
+if len(allowed_characters) < 11267:
+    for i in range(11267 - len(allowed_characters)):
+        allowed_characters += chr(1000 + i)
+elif len(allowed_characters) > 11267:
+    allowed_characters = allowed_characters[:11267]
+
+characters = allowed_characters
+char_to_index = {char: idx for idx, char in enumerate(characters)}
+
 # 데이터 경로 설정
-audio_folder = r'D:\한국어 음성\한국어_음성_분야\KsponSpeech_03\KsponSpeech_03'
+audio_folder = r'D:\AI\한국어 음성\한국어_음성_분야\KsponSpeech_05\KsponSpeech_05\KsponSpeech_0497'
 
 # 모든 .pcm 파일 경로를 재귀적으로 찾기
 audio_paths = []
@@ -45,6 +62,10 @@ def load_transcript(file_path):
             continue
     raise ValueError(f"Failed to decode file {file_path} with available encodings")
 
+# 텍스트를 인덱스로 변환
+def text_to_indices(text):
+    return [char_to_index[char] for char in text if char in char_to_index]
+
 # 파일을 처리하는 함수
 def process_file(audio_path):
     base_name = os.path.splitext(os.path.basename(audio_path))[0]
@@ -59,10 +80,12 @@ def process_file(audio_path):
     
     # 텍스트 파일 전처리
     transcript = load_transcript(transcript_path)
+    transcript_indices = text_to_indices(transcript)
     
     return {
         'mel_spectrogram': mel_spectrogram,  # 이미 CPU로 이동
-        'transcript': transcript
+        'transcript': transcript,
+        'transcript_indices': transcript_indices
     }
 
 # 데이터 처리 및 저장
@@ -82,5 +105,5 @@ def preprocess_data(audio_paths, transcript_paths):
 if __name__ == '__main__':
     processed_data, max_len = preprocess_data(audio_paths, transcript_paths)
     # 여기서 데이터와 최대 길이를 저장할 수 있습니다.
-    torch.save((processed_data, max_len), 'processed_data.pt')
+    torch.save((processed_data, max_len), 'D:\\AI\\processed_data.pt')
     print("Processed data has been saved to 'processed_data.pt'.")

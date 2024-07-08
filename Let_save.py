@@ -1,19 +1,43 @@
 import h5py
 import torch
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# 전처리된 데이터를 HDF5 파일로 저장
+# 멜 스펙트로그램과 전사 데이터를 HDF5 파일에 저장하는 함수
+def process_and_save(idx, item, mel_spectrograms, transcripts, max_len):
+    mel = item['mel_spectrogram'].numpy()
+    mel_spectrograms[idx, :, :mel.shape[1]] = mel
+    transcripts[idx] = item['transcript']
+    return idx
+
+# 데이터를 HDF5 파일로 저장하는 함수
 def save_to_h5(data, h5_file, max_len):
     with h5py.File(h5_file, 'w') as f:
-        mel_spectrograms = f.create_dataset('mel_spectrograms', (len(data), 80, max_len), dtype='float32', chunks=True)
-        transcripts = f.create_dataset('transcripts', (len(data),), dtype=h5py.special_dtype(vlen=str))
+        # 멜 스펙트로그램 데이터셋 생성
+        mel_spectrograms = f.create_dataset(
+            'mel_spectrograms', 
+            (len(data), 80, max_len), 
+            dtype='float32', 
+            chunks=(1, 80, max_len),  # 청크 크기 설정
+            compression="gzip"  # 압축 사용
+        )
+        # 전사 데이터셋 생성
+        transcripts = f.create_dataset(
+            'transcripts', 
+            (len(data),), 
+            dtype=h5py.special_dtype(vlen=str),
+            compression="gzip"  # 압축 사용
+        )
 
-        for idx, item in enumerate(tqdm(data, desc="Saving to HDF5", unit="sample")):
-            mel = item['mel_spectrogram'].numpy()  # 이미 CPU에 있음
-            mel_spectrograms[idx, :, :mel.shape[1]] = mel  # 고정된 최대 길이로 패딩
-            transcripts[idx] = item['transcript']
+        # 스레드를 사용하여 데이터를 병렬로 저장
+        with ThreadPoolExecutor(max_workers=4) as executor:  # 최대 4개의 스레드 사용
+            futures = [executor.submit(process_and_save, idx, item, mel_spectrograms, transcripts, max_len) for idx, item in enumerate(data)]
+            for future in tqdm(as_completed(futures), total=len(data), desc="Saving to HDF5", unit="sample"):
+                future.result()
 
 if __name__ == '__main__':
-    processed_data, max_len = torch.load('processed_data.pt')
-    save_to_h5(processed_data, 'processed_data.h5', max_len)
+    # 전처리된 데이터 로드
+    processed_data, max_len = torch.load('D:\\AI\\processed_data.pt')
+    # HDF5 파일로 저장
+    save_to_h5(processed_data, 'D:\\AI\\processed_data.h5', max_len)
     print("Processed data has been saved to HDF5.")
