@@ -10,6 +10,11 @@ __pycache__/
 # C extensions
 *.so
 
+best_model.pth/
+/best_model.pth
+processed_data.h5/
+/processed_data.h5
+
 # Distribution / packaging
 .Python
 build/
@@ -175,7 +180,8 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-
+processd_data.pkl/
+/processed_data.pkl
 
 /stt_model.keras
 stt_model.keras/
