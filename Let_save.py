@@ -1,43 +1,27 @@
 import h5py
 import torch
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
-# 멜 스펙트로그램과 전사 데이터를 HDF5 파일에 저장하는 함수
-def process_and_save(idx, item, mel_spectrograms, transcripts, max_len):
-    mel = item['mel_spectrogram'].numpy()
-    mel_spectrograms[idx, :, :mel.shape[1]] = mel
-    transcripts[idx] = item['transcript']
-    return idx
+def save_to_h5_split(data, output_dir, max_len, num_splits):
+    os.makedirs(output_dir, exist_ok=True)
+    split_size = len(data) // num_splits
 
-# 데이터를 HDF5 파일로 저장하는 함수
-def save_to_h5(data, h5_file, max_len):
-    with h5py.File(h5_file, 'w') as f:
-        # 멜 스펙트로그램 데이터셋 생성
-        mel_spectrograms = f.create_dataset(
-            'mel_spectrograms', 
-            (len(data), 80, max_len), 
-            dtype='float32', 
-            chunks=(1, 80, max_len),  # 청크 크기 설정
-            compression="gzip"  # 압축 사용
-        )
-        # 전사 데이터셋 생성
-        transcripts = f.create_dataset(
-            'transcripts', 
-            (len(data),), 
-            dtype=h5py.special_dtype(vlen=str),
-            compression="gzip"  # 압축 사용
-        )
+    for i in range(num_splits):
+        start_idx = i * split_size
+        end_idx = (i + 1) * split_size if i != num_splits - 1 else len(data)
+        output_file = os.path.join(output_dir, f'processed_data_part_{i}.h5')
 
-        # 스레드를 사용하여 데이터를 병렬로 저장
-        with ThreadPoolExecutor(max_workers=4) as executor:  # 최대 4개의 스레드 사용
-            futures = [executor.submit(process_and_save, idx, item, mel_spectrograms, transcripts, max_len) for idx, item in enumerate(data)]
-            for future in tqdm(as_completed(futures), total=len(data), desc="Saving to HDF5", unit="sample"):
-                future.result()
+        with h5py.File(output_file, 'w') as f:
+            mel_spectrograms = f.create_dataset('mel_spectrograms', (end_idx - start_idx, 80, max_len), dtype='float32', chunks=(1, 80, max_len), compression='gzip')
+            transcripts = f.create_dataset('transcripts', (end_idx - start_idx,), dtype=h5py.special_dtype(vlen=str))
+
+            for idx, item in enumerate(tqdm(data[start_idx:end_idx], desc=f"Saving to {output_file}", unit="sample")):
+                mel = item['mel_spectrogram'].numpy()
+                mel_spectrograms[idx, :, :mel.shape[1]] = mel
+                transcripts[idx] = item['transcript']
 
 if __name__ == '__main__':
-    # 전처리된 데이터 로드
-    processed_data, max_len = torch.load('D:\\AI\\processed_data.pt')
-    # HDF5 파일로 저장
-    save_to_h5(processed_data, 'D:\\AI\\processed_data.h5', max_len)
-    print("Processed data has been saved to HDF5.")
+    processed_data, max_len = torch.load('D:\\AI\\processed_data1.pt')
+    save_to_h5_split(processed_data, r'D:\\AI\\output_dir', max_len, num_splits=10)
+    print("Processed data has been saved to HDF5 files.")

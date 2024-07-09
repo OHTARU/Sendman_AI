@@ -231,9 +231,12 @@ def main():
     input_dim = 80
     hidden_dim = 512
     output_dim = len(characters)
-    h5_files = [os.path.join(r'D:\\AI\\output_dir', f) for f in os.listdir(r'D:\\AI\\output_dir') if f.endswith('.h5')]
+    h5_files = [
+        os.path.join(r'D:\\AI\\output_dir', f'processed_data_part_{i}.h5') 
+        for i in range(4)
+    ]
 
-    train_files, temp_files = train_test_split(h5_files, test_size=0.2, random_state=42)
+    train_files, temp_files = train_test_split(h5_files, test_size=0.5, random_state=42)
     val_files, test_files = train_test_split(temp_files, test_size=0.5, random_state=42)
 
     transform = augment_spectrogram if torch.cuda.is_available() else None
@@ -245,29 +248,27 @@ def main():
     # 배치 크기를 줄임 (기존 8에서 4로 줄임)
     train_loader = DataLoader(
         train_dataset,
-        batch_size=6, shuffle=True, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
+        batch_size=4, shuffle=True, collate_fn=pad_collate_fn, num_workers=4, pin_memory=True
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=6, shuffle=False, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
+        batch_size=4, shuffle=False, collate_fn=pad_collate_fn, num_workers=4, pin_memory=True
     )
     test_loader = DataLoader(
         test_dataset,
-        batch_size=6, shuffle=False, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
+        batch_size=4, shuffle=False, collate_fn=pad_collate_fn, num_workers=4, pin_memory=True
     )
 
     model = TransformerModel(input_dim, hidden_dim, output_dim).to(device)
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 1:W
         model = nn.DataParallel(model)
 
     print("Starting training...")
     train_model(model, train_loader, val_loader, num_epochs=10, lr=0.001, device=device, patience=10)
 
-    print("Evaluating on test data...")
     test_loss = evaluate_model(model, test_loader, nn.CTCLoss().to(device), device)
     print(f"Test Loss: {test_loss}")
 
-    print("Predicting on sample audio...")
     audio_path = r"D:\AI\한국어 음성\평가용_데이터\eval_clean\KsponSpeech_E00001.pcm"
     transcript = predict(model, audio_path, device=device)
     print(f"Predicted transcript: {transcript}")

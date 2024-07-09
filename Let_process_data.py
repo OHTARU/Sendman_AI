@@ -12,6 +12,7 @@ allowed_characters = (
 )
 allowed_characters += " "
 
+# allowed_characters 길이를 11267로 설정
 if len(allowed_characters) < 11267:
     for i in range(11267 - len(allowed_characters)):
         allowed_characters += chr(1000 + i)
@@ -22,7 +23,7 @@ characters = allowed_characters
 char_to_index = {char: idx for idx, char in enumerate(characters)}
 
 # 데이터 경로 설정
-audio_folder = r'D:\AI\한국어 음성\한국어_음성_분야\KsponSpeech_05\KsponSpeech_05\KsponSpeech_0497'
+audio_folder = r'D:\AI\한국어 음성\한국어_음성_분야\KsponSpeech_05\KsponSpeech_05'
 
 # 모든 .pcm 파일 경로를 재귀적으로 찾기
 audio_paths = []
@@ -48,7 +49,8 @@ def extract_features(waveform, sr, n_mels=80, n_fft=400):
     waveform = torch.tensor(waveform).unsqueeze(0)  # (1, N) 형태로 변환
     mel_spectrogram = torchaudio.transforms.MelSpectrogram(
         sample_rate=sr, n_mels=n_mels, n_fft=n_fft)(waveform)
-    return mel_spectrogram.squeeze(0)
+    mel_spectrogram_db = torchaudio.transforms.AmplitudeToDB()(mel_spectrogram)
+    return mel_spectrogram_db.squeeze(0)
 
 # 텍스트 파일 로드
 def load_transcript(file_path):
@@ -105,5 +107,5 @@ def preprocess_data(audio_paths, transcript_paths):
 if __name__ == '__main__':
     processed_data, max_len = preprocess_data(audio_paths, transcript_paths)
     # 여기서 데이터와 최대 길이를 저장할 수 있습니다.
-    torch.save((processed_data, max_len), 'D:\\AI\\processed_data.pt')
-    print("Processed data has been saved to 'processed_data.pt'.")
+    torch.save((processed_data, max_len), 'D:\\AI\\processed_data1.pt')
+    print("Processed data has been saved to 'processed_data1.pt'.")
