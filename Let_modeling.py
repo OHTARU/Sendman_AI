@@ -131,9 +131,9 @@ def evaluate_model(model, dataloader, criterion, device):
     with torch.no_grad():
         for mel_spectrograms, transcripts, input_lengths, target_lengths in dataloader:
             mel_spectrograms, transcripts, input_lengths, target_lengths = mel_spectrograms.to(device), transcripts.to(device), input_lengths.to(device), target_lengths.to(device)
-            mel_spectrograms = mel_spectrograms.permute(0, 2, 1)  # (batch_size, sequence_len, feature_dim)로 변환
+            mel_spectrograms = mel_spectrograms.permute(0, 2, 1)
             outputs = model(mel_spectrograms)
-            log_probs = outputs.log_softmax(2).permute(1, 0, 2)  # (sequence_len, batch_size, num_classes)로 변환
+            log_probs = outputs.log_softmax(2).permute(1, 0, 2)
             loss = criterion(log_probs, transcripts, input_lengths, target_lengths)
             total_loss += loss.item()
     return total_loss / len(dataloader)
@@ -170,14 +170,13 @@ def train_model(model, train_loader, val_loader, num_epochs, lr=0.001, device='c
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
         for mel_spectrograms, transcripts, input_lengths, target_lengths in progress_bar:
             mel_spectrograms, transcripts, input_lengths, target_lengths = mel_spectrograms.to(device), transcripts.to(device), input_lengths.to(device), target_lengths.to(device)
-            mel_spectrograms = mel_spectrograms.permute(0, 2, 1)  # (batch_size, sequence_len, feature_dim)로 변환
+            mel_spectrograms = mel_spectrograms.permute(0, 2, 1)
             
             optimizer.zero_grad()
             
             with autocast():
                 outputs = model(mel_spectrograms)
-                # CTCLoss는 Half precision을 지원하지 않으므로 autocast에서 제외
-                log_probs = outputs.log_softmax(2).permute(1, 0, 2)  # (sequence_len, batch_size, num_classes)로 변환
+                log_probs = outputs.log_softmax(2).permute(1, 0, 2)
                 loss = criterion(log_probs, transcripts, input_lengths, target_lengths)
             
             scaler.scale(loss).backward()
@@ -233,7 +232,7 @@ def main():
     output_dim = len(characters)
     h5_files = [os.path.join(r'D:\\AI\\output_dir', f) for f in os.listdir(r'D:\\AI\\output_dir') if f.endswith('.h5')]
 
-    train_files, temp_files = train_test_split(h5_files, test_size=0.2, random_state=42)
+    train_files, temp_files = train_test_split(h5_files, test_size=0.4, random_state=42)
     val_files, test_files = train_test_split(temp_files, test_size=0.5, random_state=42)
 
     transform = augment_spectrogram if torch.cuda.is_available() else None
@@ -245,29 +244,26 @@ def main():
     # 배치 크기를 줄임 (기존 8에서 4로 줄임)
     train_loader = DataLoader(
         train_dataset,
-        batch_size=6, shuffle=True, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
+        batch_size=4, shuffle=True, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=6, shuffle=False, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
+        batch_size=4, shuffle=False, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
     )
     test_loader = DataLoader(
         test_dataset,
-        batch_size=6, shuffle=False, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
+        batch_size=4, shuffle=False, collate_fn=pad_collate_fn, num_workers=6, pin_memory=True
     )
 
     model = TransformerModel(input_dim, hidden_dim, output_dim).to(device)
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
 
-    print("Starting training...")
     train_model(model, train_loader, val_loader, num_epochs=10, lr=0.001, device=device, patience=10)
 
-    print("Evaluating on test data...")
     test_loss = evaluate_model(model, test_loader, nn.CTCLoss().to(device), device)
     print(f"Test Loss: {test_loss}")
 
-    print("Predicting on sample audio...")
     audio_path = r"D:\AI\한국어 음성\평가용_데이터\eval_clean\KsponSpeech_E00001.pcm"
     transcript = predict(model, audio_path, device=device)
     print(f"Predicted transcript: {transcript}")
