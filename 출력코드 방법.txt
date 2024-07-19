@@ -1,0 +1,13 @@
+하기전 설정해야하는거
+
+1. conda 설치
+2. conda 설치되면 conda프롬프트 cmd 창 들어기
+3. conda create -n kospeech python==3.8 입력
+4. conda activate kospeech
+5. 코드 있는 폴더 경로로 cd 해서 경로 들어가지면 pip install -e . 입력
+6. 설치 다 되면 dataset/kspon 들어가서 pip install -r equirements.txt
+7. 다 되면 text_print.py 에 들어가서 42번째 줄에 있는거 경로 확인하고 aihub_labels.csv 경로 설정 다시해주기
+8. 설정 다 하면 
+
+
+python test_print.py --model_path "모델경로" --audio_path "음성데이터경로" < 이거 모델경로 하고 음성데이터 경로 설정해주고 kospeech-latest 경로에서 코드 실행하면됨

@@ -1,0 +1,22 @@
+python main.py --dataset_path "D:\AI\한국어_음성\한국어_음성_분야\KsponSpeech_01" --vocab_dest "D:\AI\한국어_음성\한국어_음성_분야\KsponSpeech_01" --output_unit "character" --preprocess_mode "phonetic"
+
+python main.py --dataset_path "D:\AI\한국어_음성\한국어_음성_분야" --vocab_dest "D:\AI\한국어_음성\한국어_음성_분야" --output_unit "character" --preprocess_mode "phonetic"
+
+python main.py --dataset_path "D:\AI\한국어_음성" --vocab_dest "D:\AI\한국어_음성" --output_unit "character" --preprocess_mode "phonetic"
+
+D:\AI\한국어 음성\한국어_음성_분야\KsponSpeech_01
+D:\AI\한국어_음성\한국어_음성_분야
+
+
+
+python ./bin/main.py model=ds2 train=ds2_train train.dataset_path='"D:\AI\한국어_음성\한국어_음성_분야"'
+
+pip install torch==2.3.1+cu118 torchvision torchaudio -f https://download.pytorch.org/whl/cu118/torch_stable.html
+
+
+
+python text_print.py --model_path "C:\Users\bak10\Desktop\model.pt" --audio_path "C:\Users\bak10\Desktop\kospeech-latest\file.wav"
+
+
+
+https://velog.io/@letgodchan0/%EC%9D%8C%EC%84%B1%EC%9D%B8%EC%8B%9D-%ED%95%9C%EA%B5%AD%EC%96%B4-STT-11
