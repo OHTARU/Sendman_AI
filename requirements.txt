@@ -1,0 +1,4 @@
+Flask==2.3.2
+easyocr==1.6.2
+opencv-python-headless==4.8.0.74
+Werkzeug==2.3.6
